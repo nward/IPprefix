@@ -4,7 +4,7 @@ Gem::Specification.new do |s|
   s.platform          = Gem::Platform::RUBY
   s.authors           = ["Nathan Ward"]
   s.email             = ["nward@braintrust.co.nz"]
-  s.homepage          = "http://github.com/nward"
+  s.homepage          = "http://github.com/nward/IPprefix"
   s.summary           = "Native, fast IP prefix handling code"
   s.description       = "Includes the IPprefix class, a fast class for handling IP prefixes."
 
