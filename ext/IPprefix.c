@@ -8,7 +8,6 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include "ruby.h"
-//#include "../../rlt_conf.h"
 
 #define IP4_ADDR_LEN   4
 #define IP6_ADDR_LEN  16
@@ -21,6 +20,40 @@ static uint8_t p_mask[8] = { 0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE };
 
 VALUE ipPref;  /* Global so we can use Check_Type( ,ipPref) */
 
+/*
+ * Document-class: IPprefix
+ * 
+ * IPprefix is a class encapsulating an IPv4 or IPv6 address with a prefix length.
+ */
+
+/*
+ * Document-attr: addr
+ *
+ * Address as a 4 or 16 octet string
+ */
+
+/*
+ * Document-attr: version
+ *
+ * IP version (4 or 6)
+ */
+
+/*
+ * Document-attr: length
+ *
+ * Prefix length in bits
+ */
+
+/*
+ * call-seq:
+ *   initialize(version,addr) -> newPrefix
+ *   initialize(version,addr,length) -> newPrefix
+ *
+ * Returns an IPprefix conatining an IP address, e.g. 192.168.0.3
+ * version  = 4 for IPv4, 6 for IPv6
+ * addr     = 4- or 16-byte string containing actual address
+ * length   = Integer containing the prefix length (optional)
+ */
 static VALUE pr_init(int argc, VALUE *argv, VALUE self) {
    VALUE pa[3];
    rb_scan_args(argc, argv, "12", &pa[0], &pa[1], &pa[2]);
@@ -58,18 +91,34 @@ static VALUE pr_init(int argc, VALUE *argv, VALUE self) {
    return self;
    }
 
+
+/*
+ * Returns the IP version as a Fixnum.
+ */
 static VALUE pr_version(VALUE self) {
    return rb_iv_get(self, "@version");
    }
 
+/*
+ * Returns the address as a 4 or 16 byte string.
+ */
 static VALUE pr_addr(VALUE self) {
    return rb_iv_get(self, "@addr");
    }
 
+/*
+ * Returns the prefix length as a Fixnum, or nil if no length is set.
+ */
 static VALUE pr_length(VALUE self) {  /* ||k|| (may be nil) */
    return rb_iv_get(self, "@length");
    }
 
+/*
+ * call-seq:
+ *   length=(newLength) -> newLength
+ *
+ * Sets the prefix length.
+ */
 static VALUE pr_set_length(VALUE self, VALUE length) {
    int w = NUM2INT(length);
    int ver = FIX2INT(rb_iv_get(self, "@version"));
@@ -84,6 +133,12 @@ static VALUE pr_set_length(VALUE self, VALUE length) {
    return length;
    }
 
+/*
+ * call-seq:
+ *   ==(otherPrefix) -> (true,false)
+ *
+ * Tests to see if two IPprefix objects have the same version and addr. Does not test length.
+ */
 static VALUE pr_addr_equal(VALUE self, VALUE sa) {
    int vs = FIX2INT(rb_iv_get(self, "@version"));
    if (vs != FIX2INT(rb_iv_get(sa, "@version"))) rb_raise(rb_eArgError,
@@ -96,6 +151,12 @@ static VALUE pr_addr_equal(VALUE self, VALUE sa) {
    return memcmp(sp, ap, nb) == 0 ? Qtrue : Qfalse;
    }
 
+/*
+ * call-seq:
+ *   <=>(otherPrefix) -> (-1,0,1)
+ *
+ * Compares self.addr otherprefix.addr and returns -1, 0 or 1. Useful for sorting prefixes.
+ */
 static VALUE pr_addr_compare(VALUE self, VALUE sa) {
    int vs = FIX2INT(rb_iv_get(self, "@version"));
    if (vs != FIX2INT(rb_iv_get(sa, "@version"))) rb_raise(rb_eArgError,
@@ -110,6 +171,9 @@ static VALUE pr_addr_compare(VALUE self, VALUE sa) {
    else return INT2FIX(0);
    }
 
+/*
+ * Returns length-1
+ */
 static VALUE pr_width(VALUE self) {  /* |k| = length-1 */
    VALUE w = rb_iv_get(self, "@length");
    if (w == Qnil) rb_raise(rb_eArgError,
@@ -117,6 +181,12 @@ static VALUE pr_width(VALUE self) {  /* |k| = length-1 */
    return INT2FIX(FIX2INT(w)-1);
    }
 
+/*
+ * call-seq:
+ *   prefix?(otherPrefix) -> (true,false)
+ *
+ * Returns true if OtherIPprefix is a subnet of IPprefix, i.e. their first IPprefix.length bits are the same.
+ */
 static VALUE pr_preceq(VALUE self, VALUE v_arg) {  /* precedes or equals */
    int vs = FIX2INT(rb_iv_get(self, "@version"));
    if (vs != FIX2INT(rb_iv_get(v_arg, "@version"))) rb_raise(rb_eArgError,
@@ -144,6 +214,12 @@ static VALUE pr_preceq(VALUE self, VALUE v_arg) {  /* precedes or equals */
    return r >= s_len ? Qtrue : Qfalse;  /* first_bit_different > width */
    }
 
+/*
+ * call-seq:
+ *   equals?(otherPrefix) -> (true,false)
+ *
+ * Returns true if self's addr, version, and length match otherPrefix.
+ */
 static VALUE pr_equal(VALUE self, VALUE v_arg) {
    int v = FIX2INT(rb_iv_get(self, "@version"));
    if (v != FIX2INT(rb_iv_get(v_arg, "@version"))) rb_raise(rb_eArgError,
@@ -164,6 +240,12 @@ static VALUE pr_equal(VALUE self, VALUE v_arg) {
    return ((ap[j] ^ sp[j]) & p_mask[s_len%8]) == 0 ? Qtrue : Qfalse;
    }
 
+/*
+ * call-seq:
+ *   first_bit_different(otherPrefix) -> Integer
+ *
+ * Returns an Integer, the (0-origin) bit position where the two IPprefixes are different.
+ */
 static VALUE pr_first_bit_differ(VALUE self, VALUE v_arg) {
    int v = FIX2INT(rb_iv_get(self, "@version"));
    if (v != FIX2INT(rb_iv_get(v_arg, "@version"))) rb_raise(rb_eArgError,
@@ -191,6 +273,12 @@ static VALUE pr_first_bit_differ(VALUE self, VALUE v_arg) {
    return INT2FIX(r >= min_len ? min_len : r);
    }
 
+/*
+ * call-seq:
+ *   bit_set?(bit) -> (true,false)
+ *
+ * Returns true if a certain bit (specified as an Integer offset) is set.
+ */
 static VALUE pr_bit_set(VALUE self, VALUE v_arg) {
    VALUE v = FIX2INT(rb_iv_get(self, "@version"));
    int last_bit = v == 4 ? IP4_LAST_BIT : IP6_LAST_BIT;
@@ -206,6 +294,9 @@ static VALUE pr_bit_set(VALUE self, VALUE v_arg) {
       }
    }
 
+/*
+ * Returns the complement of an IPprefix, i.e. one having the same length, but all bits the ones-complement of those in IPprefix.
+ */
 static VALUE pr_complement(VALUE self) {
    VALUE ver = rb_iv_get(self, "@version");
    int nb = FIX2INT(ver) == 4 ? IP4_ADDR_LEN : IP6_ADDR_LEN;
@@ -269,6 +360,9 @@ static char *v6addr_to_s(uint8_t *in6a)
    return d;
    }
 
+/*
+ * Returns a String with a human readable prefix and length in CIDR notation.
+ */
 static VALUE pr_to_s(VALUE self) {
    int ver = FIX2INT(rb_iv_get(self, "@version"));
    VALUE addr = rb_iv_get(self, "@addr");
@@ -330,6 +424,14 @@ static uint16_t get_nbr(char **str, int *rem, int *base) {
    return n;
    }
 
+/*
+ * call-seq:
+ *   from_s(string) -> IPprefix
+ *
+ * Parses str to find version and address, e.g.
+ * p = IPprefix::from_s('192.168.1.1') 
+ * p = IPprefix.from_s('fe80::20d:60ff:fe38:18b/64')
+ */
 static VALUE pr_from_s(VALUE self, VALUE v_str) {
    VALUE pa[3] = { Qnil, Qnil, Qnil };
    char *str = RSTRING_PTR(v_str), *sp;
@@ -448,4 +550,10 @@ void Init_IPprefix() {
    rb_define_method(ipPref, "bit_set?", pr_bit_set, 1);
    rb_define_method(ipPref, "first_bit_different", pr_first_bit_differ, 1);
    rb_define_method(ipPref, "complement", pr_complement, 0);
+
+   /* Define the attributes */
+   rb_define_attr(ipPref, "addr", 1,0);
+   rb_define_attr(ipPref, "version", 1,0);
+   rb_define_attr(ipPref, "length", 1,1);
+
    }

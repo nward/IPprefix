@@ -5,8 +5,8 @@ Gem::Specification.new do |s|
   s.authors           = ["Nathan Ward"]
   s.email             = ["nward@braintrust.co.nz"]
   s.homepage          = "http://github.com/nward"
-  s.summary           = "IPprefix"
-  s.description       = "IPprefix"
+  s.summary           = "Native, fast IP prefix handling code"
+  s.description       = "Includes the IPprefix class, a fast class for handling IP prefixes."
 
   s.required_rubygems_version = ">= 1.3.6"
   
